@@ -4,11 +4,13 @@
   "type": "registry:component",
   "title": "Hello World",
   "description": "A simple hello world component",
-  "registryDependencies": ["button"],
+  "registryDependencies": [
+    "button"
+  ],
   "files": [
     {
       "path": "registry/new-york/blocks/hello-world/hello-world.tsx",
-      "content": "export function HelloWorld() {\n  return <h1 className=\"text-2xl font-bold\">Hello World</h1>\n}\n",
+      "content": "export function HelloWorld() {\n  return <h1 className=\"text-2xl font-bold\">Hello World</h1>;\n}\n",
       "type": "registry:component"
     }
   ]
