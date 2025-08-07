@@ -1,0 +1,45 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "stripe-01",
+  "type": "registry:block",
+  "title": "Stripe 01",
+  "description": "",
+  "files": [
+    {
+      "path": "registry/new-york/blocks/stripe-01/app/api/stripe/create-customer/route.ts",
+      "content": "import { NextRequest, NextResponse } from \"next/server\";\nimport { createCustomer } from \"@/lib/stripe/server\";\n\ninterface CreateCustomerRequest {\n  record: {\n    id: string;\n    email: string;\n  };\n}\n\nexport async function POST(request: NextRequest) {\n  try {\n    const body: CreateCustomerRequest = await request.json();\n\n    const customer = await createCustomer({\n      userId: body.record.id,\n      email: body.record.email,\n    });\n\n    return NextResponse.json({ customer }, { status: 201 });\n  } catch (error) {\n    const message = error instanceof Error ? error.message : \"Unexpected error\";\n\n    return new NextResponse(message, { status: 500 });\n  }\n}\n",
+      "type": "registry:page",
+      "target": "app/api/create-customer/route.ts"
+    },
+    {
+      "path": "registry/new-york/blocks/stripe-01/app/api/stripe/webhook/route.ts",
+      "content": "import { NextRequest, NextResponse } from \"next/server\";\nimport { StripeSync } from \"@supabase/stripe-sync-engine\";\n\nconst databaseUrl = process.env.SUPABASE_DATABASE_URL!;\nconst stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;\nconst stripeSecretKey = process.env.STRIPE_SECRET_KEY!;\n\nconst stripeSync = new StripeSync({\n  databaseUrl,\n  schema: \"stripe\",\n  stripeSecretKey,\n  stripeWebhookSecret,\n  stripeApiVersion: \"2025-05-28.basil\",\n  autoExpandLists: true,\n  backfillRelatedEntities: true,\n  maxPostgresConnections: 5,\n});\n\nexport async function POST(request: NextRequest) {\n  try {\n    const payload = await request.text();\n    const signature = request.headers.get(\"stripe-signature\")!;\n\n    await stripeSync.processWebhook(payload, signature);\n\n    return new NextResponse(null, { status: 202 });\n  } catch (error) {\n    const message = error instanceof Error ? error.message : \"Unexpected error\";\n\n    console.error(message);\n    return new NextResponse(message, { status: 500 });\n  }\n}\n",
+      "type": "registry:page",
+      "target": "app/api/webhook/route.ts"
+    },
+    {
+      "path": "registry/new-york/blocks/stripe-01/lib/stripe/actions.ts",
+      "content": "\"use server\";\n\nimport { createCheckoutSession, createCustomerPortalSession } from \"./server\";\nimport { withCustomer } from \"./utils\";\n\nexport const checkoutAction = withCustomer(\n  async (formData, userId, customerId) => {\n    const priceId = formData.get(\"priceId\") as string | null;\n    if (!priceId) {\n      throw new Error(\"Price ID is required\");\n    }\n\n    await createCheckoutSession({\n      userId: userId,\n      customerId: customerId,\n      priceId: priceId,\n      successUrl: `${process.env.BASE_URL}/protected/payment-success`,\n      cancelUrl: `${process.env.BASE_URL}/protected/subscription-plans`,\n    });\n  }\n);\n\nexport const customerPortalAction = withCustomer(\n  async (_formData, _userId, customerId) => {\n    await createCustomerPortalSession({\n      customerId: customerId,\n      returnUrl: `${process.env.BASE_URL}/protected/manage-subscription`,\n    });\n  }\n);\n",
+      "type": "registry:lib",
+      "target": "lib/stripe/actions.ts"
+    },
+    {
+      "path": "registry/new-york/blocks/stripe-01/lib/stripe/queries.ts",
+      "content": "import { createClient } from \"@/lib/server\";\n\nexport async function getCustomerByUserId({ userId }: { userId: string }) {\n  const supabase = await createClient();\n  const { data, error } = await supabase\n    .from(\"customers_view\")\n    .select(\"*\")\n    .eq(\"user_id\", userId)\n    .limit(1)\n    .maybeSingle();\n\n  if (error) {\n    throw error;\n  }\n\n  return data;\n}\n",
+      "type": "registry:lib",
+      "target": "lib/stripe/queries.ts"
+    },
+    {
+      "path": "registry/new-york/blocks/stripe-01/lib/stripe/server.ts",
+      "content": "import Stripe from \"stripe\";\nimport { redirect } from \"next/navigation\";\n\nexport const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {\n  apiVersion: \"2025-05-28.basil\",\n});\n\nexport async function createCustomer({\n  userId,\n  email,\n}: {\n  userId: string;\n  email: string;\n}) {\n  const customer = await stripe.customers.create({\n    email: email,\n    metadata: {\n      userId: userId,\n    },\n  });\n\n  return customer;\n}\n\nexport async function createCheckoutSession({\n  userId,\n  customerId,\n  priceId,\n  successUrl,\n  cancelUrl,\n}: {\n  userId: string;\n  customerId: string;\n  priceId: string;\n  successUrl: string;\n  cancelUrl: string;\n}) {\n  const session = await stripe.checkout.sessions.create({\n    mode: \"subscription\",\n    line_items: [\n      {\n        price: priceId,\n        quantity: 1,\n      },\n    ],\n    success_url: `${successUrl}?session_id={CHECKOUT_SESSION_ID}`,\n    cancel_url: cancelUrl,\n    client_reference_id: userId,\n    customer: customerId,\n    saved_payment_method_options: {\n      payment_method_save: \"enabled\",\n    },\n  });\n\n  if (!session.url) {\n    throw new Error(\"Checkout session URL is not available\");\n  }\n\n  redirect(session.url);\n}\n\nexport async function createCustomerPortalSession({\n  customerId,\n  returnUrl,\n}: {\n  customerId: string;\n  returnUrl: string;\n}) {\n  const session = await stripe.billingPortal.sessions.create({\n    customer: customerId,\n    return_url: returnUrl,\n  });\n\n  redirect(session.url);\n}\n",
+      "type": "registry:lib",
+      "target": "lib/stripe/server.ts"
+    },
+    {
+      "path": "registry/new-york/blocks/stripe-01/lib/stripe/utils.ts",
+      "content": "import { createClient } from \"@/lib/server\";\nimport { getCustomerByUserId } from \"./queries\";\n\ntype ActionWithCustomer = (\n  formData: FormData,\n  userId: string,\n  customerId: string\n) => Promise<void>;\n\nexport function withCustomer(action: ActionWithCustomer) {\n  return async (formData: FormData): Promise<void> => {\n    const supabase = await createClient();\n    const {\n      data: { user },\n    } = await supabase.auth.getUser();\n    if (!user) {\n      throw new Error(\"User not authenticated\");\n    }\n\n    const customer = await getCustomerByUserId({ userId: user.id });\n    if (!customer || !customer.id) {\n      throw new Error(\"Customer not found\");\n    }\n\n    return action(formData, user.id, customer.id);\n  };\n}\n",
+      "type": "registry:lib",
+      "target": "lib/stripe/utils.ts"
+    }
+  ]
+}

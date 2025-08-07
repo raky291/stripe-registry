@@ -75,6 +75,44 @@
           "type": "registry:component"
         }
       ]
+    },
+    {
+      "name": "stripe-01",
+      "type": "registry:block",
+      "title": "Stripe 01",
+      "description": "",
+      "files": [
+        {
+          "path": "registry/new-york/blocks/stripe-01/app/api/stripe/create-customer/route.ts",
+          "type": "registry:page",
+          "target": "app/api/create-customer/route.ts"
+        },
+        {
+          "path": "registry/new-york/blocks/stripe-01/app/api/stripe/webhook/route.ts",
+          "type": "registry:page",
+          "target": "app/api/webhook/route.ts"
+        },
+        {
+          "path": "registry/new-york/blocks/stripe-01/lib/stripe/actions.ts",
+          "type": "registry:lib",
+          "target": "lib/stripe/actions.ts"
+        },
+        {
+          "path": "registry/new-york/blocks/stripe-01/lib/stripe/queries.ts",
+          "type": "registry:lib",
+          "target": "lib/stripe/queries.ts"
+        },
+        {
+          "path": "registry/new-york/blocks/stripe-01/lib/stripe/server.ts",
+          "type": "registry:lib",
+          "target": "lib/stripe/server.ts"
+        },
+        {
+          "path": "registry/new-york/blocks/stripe-01/lib/stripe/utils.ts",
+          "type": "registry:lib",
+          "target": "lib/stripe/utils.ts"
+        }
+      ]
     }
   ]
 }
